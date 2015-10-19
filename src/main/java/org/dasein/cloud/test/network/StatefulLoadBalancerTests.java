@@ -483,23 +483,23 @@ public class StatefulLoadBalancerTests {
             }
             else {
                 LoadBalancerHealthCheck lbhc = support.createLoadBalancerHealthCheck(
-                        resources.getTestHttpHealthCheckOptions()
+                        resources.getTestHttpHealthCheckOptions(support)
                 );
                 lbhcId = lbhc.getProviderLBHealthCheckId();
             }
 
             LoadBalancerHealthCheck lbhc = support.getLoadBalancerHealthCheck(lbhcId, lbId);
             assertHealthCheck(support, lbhc);
-            assertCompareOptionsWithLBHC(resources.getTestHttpHealthCheckOptions(), lbhc);
+            assertCompareOptionsWithLBHC(resources.getTestHttpHealthCheckOptions(support), lbhc);
 
-            LoadBalancerHealthCheck lbhcModified = support.modifyHealthCheck(lbhcId, resources.getTestTcpHealthCheckOptions());
+            LoadBalancerHealthCheck lbhcModified = support.modifyHealthCheck(lbhcId, resources.getTestTcpHealthCheckOptions(support));
 
             // check correct values are returned - modified as requested
-            assertCompareOptionsWithLBHC(resources.getTestTcpHealthCheckOptions(), lbhcModified);
+            assertCompareOptionsWithLBHC(resources.getTestTcpHealthCheckOptions(support), lbhcModified);
 
             // get it again to make sure there was no cheating
             lbhcModified = support.getLoadBalancerHealthCheck(lbhcModified.getProviderLBHealthCheckId(), lbId);
-            assertCompareOptionsWithLBHC(resources.getTestTcpHealthCheckOptions(), lbhcModified);
+            assertCompareOptionsWithLBHC(resources.getTestTcpHealthCheckOptions(support), lbhcModified);
         }
         else {
             tm.ok("Health checks are not supported in " + tm.getContext().getRegionId() + " of " + tm.getProvider().getCloudName());

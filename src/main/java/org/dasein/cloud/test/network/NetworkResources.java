@@ -1080,19 +1080,23 @@ public class NetworkResources {
         return null;
     }
 
-    public @Nonnull HealthCheckOptions getTestHttpHealthCheckOptions() {
+    public @Nonnull HealthCheckOptions getTestHttpHealthCheckOptions(@Nonnull LoadBalancerSupport lbs) throws CloudException, InternalException {
         if( testHttpHealthCheckOptions == null ) {
             testHttpHealthCheckOptions = HealthCheckOptions.getInstance(
-                    null, null, null, "localhost", LoadBalancerHealthCheck.HCProtocol.HTTP, 8080, "/index.htm", 60, 60, 3, 10);
-            // MAX for GCE is 60 sec
+                    null, null, null, "localhost",
+                    LoadBalancerHealthCheck.HCProtocol.HTTP, 8080, "/index.htm",
+                    lbs.getCapabilities().getMaxHealthCheckInterval(),
+                    lbs.getCapabilities().getMaxHealthCheckTimeout(),
+                    3,
+                    10);
         }
         return testHttpHealthCheckOptions;
     }
 
-    public @Nonnull HealthCheckOptions getTestTcpHealthCheckOptions() {
+    public @Nonnull HealthCheckOptions getTestTcpHealthCheckOptions(@Nonnull LoadBalancerSupport lbs) throws CloudException, InternalException {
         if( testTcpHealthCheckOptions == null ) {
             testTcpHealthCheckOptions = HealthCheckOptions.getInstance(
-                    null, null, null, "localhost", LoadBalancerHealthCheck.HCProtocol.TCP, 999, null, 45, 45, 4, 9);
+                    null, null, null, "localhost", LoadBalancerHealthCheck.HCProtocol.TCP, 999, null, lbs.getCapabilities().getMinHealthCheckInterval(), lbs.getCapabilities().getMinHealthCheckTimeout(), 4, 9);
         }
         return testTcpHealthCheckOptions;
     }
@@ -1789,7 +1793,7 @@ public class NetworkResources {
             // make the listener port match that of healthcheck, this is not always important but with OS it is
             // TODO: we might have to put a capability to declare whether the HC needs its own port and then it won't be
             // so important for these to match
-            final int privatePort = getTestHttpHealthCheckOptions().getPort();
+            final int privatePort = getTestHttpHealthCheckOptions(support).getPort();
             if ( !withHttps ) {
                 options.havingListeners(LbListener.getInstance(publicPort, privatePort));
             } else {
@@ -1912,7 +1916,7 @@ public class NetworkResources {
         }
 
         if( withHealthCheck ) {
-            options.withHealthCheckOptions(getTestHttpHealthCheckOptions());
+            options.withHealthCheckOptions(getTestHttpHealthCheckOptions(support));
         }
 
         if( support.getCapabilities().identifyVlanOnCreateRequirement().equals(Requirement.REQUIRED) ) {

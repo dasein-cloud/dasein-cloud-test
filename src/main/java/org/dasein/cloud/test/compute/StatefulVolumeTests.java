@@ -425,8 +425,7 @@ public class StatefulVolumeTests {
             tm.out("New Block Volume", provisionedVolumeId);
             if( support.getCapabilities().requiresVMOnCreate().equals(Requirement.REQUIRED) ) {
                 final Volume volume = support.getVolume(provisionedVolumeId);
-                assertEquals(options.getProviderVirtualMachineId(), volume.getProviderVirtualMachineId(),
-                        "The volume is supposed to have the providerVirtualMachineId set correctly.");
+                assertEquals("The volume is supposed to have the providerVirtualMachineId set correctly.", options.getProviderVirtualMachineId(), volume.getProviderVirtualMachineId());
             }
         }
         else {

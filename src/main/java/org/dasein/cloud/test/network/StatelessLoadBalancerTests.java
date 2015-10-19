@@ -694,7 +694,7 @@ public class StatelessLoadBalancerTests {
             }
             boolean found = false;
             for( LoadBalancerHealthCheck lbhc : healthChecks ) {
-                if( resources.getTestHttpHealthCheckOptions().getPath().equals(lbhc.getPath()) && resources.getTestHttpHealthCheckOptions().getProtocol().equals(lbhc.getProtocol()) && resources.getTestHttpHealthCheckOptions().getPort() == lbhc.getPort() ) {
+                if( resources.getTestHttpHealthCheckOptions(support).getPath().equals(lbhc.getPath()) && resources.getTestHttpHealthCheckOptions(support).getProtocol().equals(lbhc.getProtocol()) && resources.getTestHttpHealthCheckOptions(support).getPort() == lbhc.getPort() ) {
                     assertHealthCheck(support, lbhc);
                     found = true;
                     break;
