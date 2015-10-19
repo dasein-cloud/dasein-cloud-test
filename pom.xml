@@ -25,7 +25,7 @@
     <name>dasein-cloud-test</name>
     <description>Unit tests for testing implementations of the Dasein Cloud API.</description>
     <inceptionYear>2009</inceptionYear>
-    <url>http://github.com/greese/dasein-cloud-aws</url>
+    <url>http://github.com/dasein-cloud/dasein-cloud-aws</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -44,16 +44,11 @@
     </organization>
 
     <scm>
-        <connection>scm:git:git://github.com/greese/dasein-cloud-test.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/greese/dasein-cloud-test.git</developerConnection>
-        <url>http://github.com/greese/dasein-cloud-test</url>
-    </scm>
-  
-  <parent>
-    <groupId>org.sonatype.oss</groupId>
-    <artifactId>oss-parent</artifactId>
-    <version>5</version>
-  </parent>  
+        <connection>scm:git:git://github.com/dasein-cloud/dasein-cloud-test.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/dasein-cloud/dasein-cloud-test.git</developerConnection>
+        <url>http://github.com/dasein-cloud/dasein-cloud-test</url>
+      <tag>dasein-cloud-test-2015.10.1</tag>
+  </scm>
   
   <dependencies>
     <dependency>
@@ -173,12 +168,15 @@
                       </goals>
                   </execution>
               </executions> 
-        </plugin>     
+        </plugin>
         <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-release-plugin</artifactId>
-            <version>2.1</version>
-      </plugin>
+            <version>2.5.3</version>
+            <configuration>
+                <goals>deploy nexus-staging:release</goals>
+            </configuration>
+        </plugin>
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <executions>
@@ -193,32 +191,31 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-gpg-plugin</artifactId>
-          <version>1.6</version>
-          <executions>
-              <execution>
-                  <id>sign-artifacts</id>
-                  <phase>verify</phase>
-                  <goals>
-                      <goal>sign</goal>
-                  </goals>
-              </execution>
-          </executions>
-      </plugin>
-      <plugin>
-          <groupId>org.sonatype.plugins</groupId>
-          <artifactId>nexus-staging-maven-plugin</artifactId>
-          <version>1.6.3</version>
-          <extensions>true</extensions>
-          <configuration>
-              <serverId>sonatype-nexus-staging</serverId>
-              <nexusUrl>https://oss.sonatype.org</nexusUrl>
-              <autoReleaseAfterClose>true</autoReleaseAfterClose>
-              <autoDropAfterRelease>true</autoDropAfterRelease>
-          </configuration>
-      </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.6</version>
+            <executions>
+                <execution>
+                    <id>sign-artifacts</id>
+                    <phase>verify</phase>
+                    <goals>
+                        <goal>sign</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+        <plugin>
+            <groupId>org.sonatype.plugins</groupId>
+            <artifactId>nexus-staging-maven-plugin</artifactId>
+            <version>1.6.3</version>
+            <extensions>true</extensions>
+            <configuration>
+                <serverId>sonatype-nexus-staging</serverId>
+                <nexusUrl>https://oss.sonatype.org</nexusUrl>
+                <autoReleaseAfterClose>true</autoReleaseAfterClose>
+            </configuration>
+        </plugin>
     </plugins>
   </build>  
   
