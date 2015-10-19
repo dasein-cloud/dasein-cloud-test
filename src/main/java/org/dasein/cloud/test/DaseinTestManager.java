@@ -75,12 +75,12 @@ public class DaseinTestManager {
     }
 
     static public @Nonnull CloudProvider constructProvider(@Nullable String overrideAccount, @Nullable String overrideShared, @Nullable String overrideSecret) {
-        String cname = System.getProperty("providerClass");
-        CloudProvider provider = null;
-
+        String cname = getSystemProperty("providerClass");
         if( cname == null ) {
-            throw new RuntimeException("Invalid class name for provider: " + cname);
+            throw new RuntimeException("Provider class name (env.providerClass) is not set, make sure to specify it manually or via a Maven profile");
         }
+
+        CloudProvider provider = null;
 
         try{
             String prop, account = "", cloudName = "", endpoint = "", regionId = "", providerName = "", userName = "";
@@ -787,6 +787,10 @@ public class DaseinTestManager {
         return (networkResources == null ? null : networkResources.getTestZoneId(label, provisionIfNull));
     }
 
+    public @Nullable String getTestVpnId(@Nonnull String label, boolean provisionIfNull, @Nullable String preferredDataCenterId) {
+        return (networkResources == null ? null : networkResources.getTestVpnId(label, provisionIfNull, preferredDataCenterId));
+    }
+
     public @Nonnull CloudProvider getProvider() {
         return provider;
     }
@@ -900,7 +904,7 @@ public class DaseinTestManager {
 
     /**
      * Get environment property
-     * @param key
+     * @param key the key to regrieve the property for
      * @return environment property, null if missing or empty
      */
     public static @Nullable String getSystemProperty(@Nonnull String key) {
