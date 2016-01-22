@@ -258,6 +258,31 @@ public class StatelessDCTests {
         tm.out("Total Data Center Count", count);
         assertTrue("There must be at least one data center in this region", count > 0);
         assertTrue("Did not find the test data center ID among returned data centers", found);
+
+        // for clouds boasting multiple regions let's test that listDataCenters can switch regions and deliver 
+        // different datacenters
+        String anotherRegion = null;
+        for( Region region : services.listRegions() ) {
+            if( !region.getProviderRegionId().equalsIgnoreCase(tm.getContext().getRegionId()) ) {
+                anotherRegion = region.getProviderRegionId();
+            }
+        }
+        if( anotherRegion != null ) {
+            found = false;
+            Iterable<DataCenter> dataCenters1 = services.listDataCenters(anotherRegion);
+            for( DataCenter dataCenter : dataCenters ) {
+                for( DataCenter dataCenter1 : dataCenters1 ) {
+                    if( dataCenter.getProviderDataCenterId().equalsIgnoreCase(dataCenter1.getProviderDataCenterId())) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            assertFalse("The returned datacenters for regions " + tm.getContext().getRegionId() + " and " + anotherRegion + " contained at least one datacenter with the same dataCenterId", found);
+        }
+        else {
+            tm.out("Provider seems to only have one region so didn't perform a multiregion test of datacenters"); 
+        }
     }
 
     @Test
