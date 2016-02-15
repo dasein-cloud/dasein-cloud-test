@@ -999,115 +999,11 @@ public class ComputeResources {
 
     }
 
-    public @Nonnull Iterable<String> provisionManyVMs( @Nonnull VirtualMachineSupport support, @Nonnull String label, @Nonnull VMLaunchOptions options, @Nullable String preferredDataCenter, int count ) throws CloudException, InternalException {
-
-        if( preferredDataCenter != null ) {
-            options.inDataCenter(preferredDataCenter);
-        }
-        if( options.getBootstrapUser() == null && Requirement.REQUIRED.equals(support.getCapabilities().identifyPasswordRequirement(testImagePlatform)) ) {
-            options.withBootstrapUser("dasein", "x" + random.nextInt(100000) + System.currentTimeMillis());
-        }
-        if( options.getBootstrapKey() == null && Requirement.REQUIRED.equals(support.getCapabilities().identifyShellKeyRequirement(testImagePlatform)) ) {
-            IdentityResources identity = DaseinTestManager.getIdentityResources();
-
-            if( identity != null ) {
-                String keypairId = identity.getTestKeypairId(DaseinTestManager.STATEFUL, true);
-
-                if( keypairId != null ) {
-                    options.withBootstrapKey(keypairId);
-                }
-            }
-        }
-        if( options.getVlanId() == null && Requirement.REQUIRED.equals(support.getCapabilities().identifyVlanRequirement()) ) {
-            NetworkResources network = DaseinTestManager.getNetworkResources();
-
-            if( network != null ) {
-                String networkId = network.getTestVLANId(DaseinTestManager.STATEFUL, true, preferredDataCenter);
-
-                if( networkId == null ) {
-                    networkId = network.getTestVLANId(DaseinTestManager.STATELESS, false, preferredDataCenter);
-                }
-                String subnetId = network.getTestSubnetId(DaseinTestManager.STATEFUL, true, networkId, preferredDataCenter);
-
-                try {
-                    if( networkId != null || subnetId != null ) {
-                        if( subnetId != null ) {
-                            @SuppressWarnings("ConstantConditions") Subnet subnet = provider.getNetworkServices().getVlanSupport().getSubnet(subnetId);
-
-                            if( subnet != null ) {
-                                String dcId = subnet.getProviderDataCenterId();
-
-                                if( dcId == null ) {
-                                    for( DataCenter dc : provider.getDataCenterServices().listDataCenters(provider.getContext().getRegionId()) ) {
-                                        if( ( dc.isActive() && dc.isAvailable() ) || dcId == null ) {
-                                            dcId = dc.getProviderDataCenterId();
-                                        }
-                                    }
-                                }
-                                options.inSubnet(null, dcId, networkId, subnetId);
-                            }
-                        }
-                        else {
-                            @SuppressWarnings("ConstantConditions") VLAN vlan = provider.getNetworkServices().getVlanSupport().getVlan(networkId);
-
-                            if( vlan != null ) {
-                                String dcId = vlan.getProviderDataCenterId();
-
-                                if( dcId == null ) {
-                                    for( DataCenter dc : provider.getDataCenterServices().listDataCenters(provider.getContext().getRegionId()) ) {
-                                        if( ( dc.isActive() && dc.isAvailable() ) || dcId == null ) {
-                                            dcId = dc.getProviderDataCenterId();
-                                            if (dcId.equals(preferredDataCenter)) // Go with preferred one, else go with last one.
-                                                break;
-                                        }
-                                    }
-                                }
-                                options.inVlan(null, dcId, networkId);
-                            }
-                        }
-                    }
-                } catch( NullPointerException ignore ) {
-                    // ignore the fiasco
-                }
-            }
-        }
-        if( options.getStaticIpIds().length < 1 && Requirement.REQUIRED.equals(support.getCapabilities().identifyStaticIPRequirement()) ) {
-            NetworkResources network = DaseinTestManager.getNetworkResources();
-
-            if( network != null ) {
-                String ipId;
-
-                if( options.getVlanId() != null ) {
-                    ipId = network.getTestStaticIpId(label, true, null, true, options.getVlanId());
-                }
-                else {
-                    ipId = network.getTestStaticIpId(label, true, null, false, null);
-                }
-                if( ipId != null ) {
-                    options.withStaticIps(ipId);
-                }
-            }
-        }
-        if( options.getRootVolumeProductId() == null && Requirement.REQUIRED.equals(support.getCapabilities().identifyRootVolumeRequirement()) && testVolumeProductId != null ) {
-            options.withRootVolumeProduct(testVolumeProductId);
-        }
-        options.withMetaData("dsntestcase", "true");
-
-
-        Iterable<String> ids = options.buildMany(provider, count);
-
-        for( String id : ids ) {
-            synchronized ( testVMs ) {
-                while( testVMs.containsKey(label) ) {
-                    label = label + random.nextInt(9);
-                }
-                testVMs.put(label, id);
-            }
-        }
-        return ids;
+    public @Nonnull String provisionVM( @Nonnull VirtualMachineSupport support, @Nonnull String label, @Nonnull VMLaunchOptions options, @Nullable String preferredDataCenter ) throws CloudException, InternalException {
+        return provisionVM(support, label, options, preferredDataCenter, 1).iterator().next();
     }
 
-    public @Nonnull String provisionVM( @Nonnull VirtualMachineSupport support, @Nonnull String label, @Nonnull VMLaunchOptions options, @Nullable String preferredDataCenter ) throws CloudException, InternalException {
+    public @Nonnull Iterable<String> provisionVM( @Nonnull VirtualMachineSupport support, @Nonnull String label, @Nonnull VMLaunchOptions options, @Nullable String preferredDataCenter, int count ) throws CloudException, InternalException {
 
         if( preferredDataCenter != null ) {
             options.inDataCenter(preferredDataCenter);
@@ -1126,14 +1022,18 @@ public class ComputeResources {
                 }
             }
         }
-        if( options.getVlanId() == null && Requirement.REQUIRED.equals(support.getCapabilities().identifyVlanRequirement()) ) {
+        if(( options.getVlanId() == null && Requirement.REQUIRED.equals(support.getCapabilities().identifyVlanRequirement()))
+                || ( options.getSubnetId() == null && Requirement.REQUIRED.equals(support.getCapabilities().identifySubnetRequirement()) ) ) {
             NetworkResources network = DaseinTestManager.getNetworkResources();
 
             if( network != null ) {
-                String networkId = network.getTestVLANId(label, true, preferredDataCenter);
-
+                String networkId = network.getTestVLANId(label, false /** true **/, preferredDataCenter);
                 if( networkId == null ) {
                     networkId = network.getTestVLANId(DaseinTestManager.STATELESS, false, preferredDataCenter);
+                }
+                // only provision a network if no other networks been found thus far
+                if( networkId == null ) {
+                    networkId = network.getTestVLANId(label, true, preferredDataCenter);
                 }
                 String subnetId = network.getTestSubnetId(DaseinTestManager.STATEFUL, true, networkId, preferredDataCenter);
 
@@ -1202,15 +1102,23 @@ public class ComputeResources {
             options.withRootVolumeProduct(testVolumeProductId);
         }
         options.withMetaData("dsntestcase", "true");
-        String id = options.build(provider);
-
-        synchronized ( testVMs ) {
-            while( testVMs.containsKey(label) ) {
-                label = label + random.nextInt(9);
-            }
-            testVMs.put(label, id);
+        
+        Iterable<String> ids;
+        if( count > 1 ) {
+            ids = options.buildMany(provider, count);
+        } else {
+            ids = Arrays.asList(options.build(provider));
         }
-        return id;
+        
+        for( String id : ids ) {
+            synchronized ( testVMs ) {
+                while( testVMs.containsKey(label) ) {
+                    label = label + random.nextInt(9);
+                }
+                testVMs.put(label, id);
+            }
+        }
+        return ids;
     }
 
     /**
@@ -1250,7 +1158,7 @@ public class ComputeResources {
         String name = namePrefix + "-" + now;
         String host = hostPrefix + ( now % 10000 );
 
-        return provisionManyVMs(support, label, VMLaunchOptions.getInstance(testVMProductId, testImageId, name, host, "Test VM for stateful integration tests for Dasein Cloud").withExtendedAnalytics(), preferredDataCenter, count);
+        return provisionVM(support, label, VMLaunchOptions.getInstance(testVMProductId, testImageId, name, host, "Test VM for stateful integration tests for Dasein Cloud").withExtendedAnalytics(), preferredDataCenter, count);
     }
 
     public @Nonnull String provisionVolume( @Nonnull VolumeSupport support, @Nonnull String label, @Nonnull String namePrefix, @Nullable VolumeFormat desiredFormat, @Nullable String preferredDataCenterId ) throws CloudException, InternalException {

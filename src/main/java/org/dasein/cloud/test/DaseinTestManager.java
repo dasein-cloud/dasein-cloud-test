@@ -54,21 +54,22 @@ public class DaseinTestManager {
     static public final String STATELESS = "stateless";
     static public final String REMOVED   = "removed";
 
-    static private HashMap<String,Integer> apiAudit = new HashMap<String, Integer>();
+    static private Map<String,Integer> apiAudit = new HashMap<String, Integer>();
 
     static private CIResources       ciResources;
     static private ComputeResources  computeResources;
-    static private TreeSet<String>   exclusions;
     static private IdentityResources identityResources;
     static private NetworkResources  networkResources;
     static private PlatformResources platformResources;
     static private StorageResources  storageResources;
 
-    static private TreeSet<String>   inclusions;
+    static private Set<String>   exclusions;
+    static private Set<String>   inclusions;
 
     static private int  skipCount;
     static private int  testCount;
     static private long testStart;
+    static private boolean dirty = true;
 
     static public @Nonnull CloudProvider constructProvider() {
         return constructProvider(null, null, null);
@@ -183,123 +184,10 @@ public class DaseinTestManager {
         catch( ClassNotFoundException e ) {
             throw new RuntimeException("No such class: " + e.getMessage());
         }
-        catch( IllegalAccessException e ) {
-
-        }
-        catch( InstantiationException e) {
-
-        }
-        catch( UnsupportedEncodingException e ) {
-
-        }
-        catch( InternalException e ) {
-
-        }
-        catch( CloudException e ) {
-
+        catch( IllegalAccessException | InstantiationException | UnsupportedEncodingException 
+                | InternalException | CloudException ignore ) {
         }
         return provider;
-
-        /*
-        ProviderContext ctx = new ProviderContext();
-
-        try {
-            String prop;
-
-            prop = overrideAccount == null ? System.getProperty("accountNumber") : overrideAccount;
-            if( prop != null ) {
-                ctx.setAccountNumber(prop);
-            }
-            prop = overrideShared == null ? System.getProperty("accessPublic") : overrideShared;
-            if( prop != null ) {
-                ctx.setAccessPublic(prop.getBytes("utf-8"));
-            }
-            prop = overrideSecret == null ? System.getProperty("accessPrivate") : overrideSecret;
-            if( prop != null ) {
-                ctx.setAccessPrivate(prop.getBytes("utf-8"));
-            }
-            prop = System.getProperty("x509CertFile");
-            if( prop != null ) {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(prop)));
-                StringBuilder str = new StringBuilder();
-                String line;
-
-                while( (line = reader.readLine()) != null ) {
-                    str.append(line);
-                    str.append("\n");
-                }
-                ctx.setX509Cert(str.toString().getBytes("utf-8"));
-            }
-            prop = System.getProperty("x509KeyFile");
-            if( prop != null ) {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(prop)));
-                StringBuilder str = new StringBuilder();
-                String line;
-
-                while( (line = reader.readLine()) != null ) {
-                    str.append(line);
-                    str.append("\n");
-                }
-                ctx.setX509Key(str.toString().getBytes("utf-8"));
-            }
-            prop = System.getProperty("endpoint");
-            if( prop != null ) {
-                ctx.setEndpoint(prop);
-            }
-            prop= System.getProperty("cloudName");
-            if( prop != null ) {
-                ctx.setCloudName(prop);
-            }
-            prop = System.getProperty("providerName");
-            if( prop != null ) {
-                ctx.setProviderName(prop);
-            }
-            prop = System.getProperty("regionId");
-            if( prop != null ) {
-                ctx.setRegionId(prop);
-            }
-            prop = System.getProperty("p12Certificate");
-            if(prop != null){
-                InputStream inputStream = new FileInputStream(prop);
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                DataOutputStream dos = new DataOutputStream(baos);
-                byte[] data = new byte[4096];
-                int count = inputStream.read(data);
-                while(count != -1) {
-                    dos.write(data, 0, count);
-                    count = inputStream.read(data);
-                }
-                ctx.setAccessPrivate(baos.toByteArray());
-            }
-            prop = System.getProperty("customProperties");
-            if( prop != null ) {
-                JSONObject json = new JSONObject(prop);
-                String[] names = JSONObject.getNames(json);
-
-                if( names != null ) {
-                    Properties properties = new Properties();
-
-                    for( String name : names ) {
-                        properties.put(name, json.getString(name));
-                    }
-                    ctx.setCustomProperties(properties);
-                }
-            }
-        }
-        catch( UnsupportedEncodingException e ) {
-            throw new RuntimeException("UTF-8 unsupported: " + e.getMessage());
-        }
-        catch( FileNotFoundException e ) {
-            throw new RuntimeException("No such file: " + e.getMessage());
-        }
-        catch( IOException e ) {
-            throw new RuntimeException("Failed to read file: " + e.getMessage());
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException("Failed to understand custom properties JSON: " + e.getMessage());
-        }
-        provider.connect(ctx);
-        return provider;*/
     }
 
     static public @Nullable ComputeResources getComputeResources() {
@@ -326,9 +214,26 @@ public class DaseinTestManager {
         return storageResources;
     }
 
+    static private @Nullable Set<String> parseArrayProperty(String name) {
+        String prop = System.getProperty(name);
+
+        if( prop != null && !prop.equals("") ) {
+            Set<String> values = new TreeSet<>();
+            if( prop.contains(",") ) {
+                for( String which : prop.split(",") ) {
+                    values.add(which.toLowerCase());
+                }
+            }
+            else {
+                values.add(prop.toLowerCase());
+            }
+            return values;
+        }
+        return null;
+    }
+    
     static public void init() {
         Logger logger = Logger.getLogger(DaseinTestManager.class);
-
         logger.info("BEGIN Test Initialization ------------------------------------------------------------------------------");
         try {
             testStart = System.currentTimeMillis();
@@ -343,37 +248,22 @@ public class DaseinTestManager {
 
             computeResources.init();
 
-            String prop = System.getProperty("dasein.inclusions");
+            inclusions = parseArrayProperty("dasein.inclusions");
+            exclusions = parseArrayProperty("dasein.exclusions");
 
-            if( prop != null && !prop.equals("") ) {
-                inclusions = new TreeSet<String>();
-                if( prop.contains(",") ) {
-                    for( String which : prop.split(",") ) {
-                        inclusions.add(which.toLowerCase());
-                    }
-                }
-                else {
-                    inclusions.add(prop.toLowerCase());
-                }
-            }
-            prop = System.getProperty("dasein.exclusions");
-
-            if( prop != null && !prop.equals("") ) {
-                exclusions = new TreeSet<String>();
-                if( prop.contains(",") ) {
-                    for( String which : prop.split(",") ) {
-                        exclusions.add(which.toLowerCase());
-                    }
-                }
-                else {
-                    exclusions.add(prop.toLowerCase());
-                }
-            }
             out(logger, null, "Included", (inclusions == null ? null : inclusions.toString()));
             out(logger, null, "Excluded", (exclusions == null ? null : exclusions.toString()));
 
             APITrace.report("Init");
             APITrace.reset();
+
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                public void run() {
+                    if( dirty ) {
+                        cleanUp();
+                    }
+                }
+            });
         }
         finally {
             logger.info("END Test Initialization ------------------------------------------------------------------------------");
@@ -382,6 +272,7 @@ public class DaseinTestManager {
     }
 
     static public void cleanUp() {
+        System.out.println("Cleaning up, please wait...");
         Logger logger = Logger.getLogger(DaseinTestManager.class);
         int provisioned = 0;
         int cleaned = 0;
@@ -474,6 +365,8 @@ public class DaseinTestManager {
         out(logger, null, "Resources De-provisioned", String.valueOf(cleaned));
         out(logger, null, "Duration", minutes + " minutes " + seconds + " seconds");
         logger.info("-------------------------------------------------------------------------------------------------");
+        
+        dirty = false;
     }
 
     static public void out(@Nonnull Logger logger, @Nullable String prefix, @Nonnull String key, @Nullable String value) {

@@ -126,7 +126,7 @@ public class StatefulRDBMSTests {
         }
 
         Iterable<DatabaseEngine> engines = support.getDatabaseEngines();
-        Set<DatabaseEngine> engineSet = new HashSet<DatabaseEngine>(Arrays.asList(DatabaseEngine.values()));
+        Set<DatabaseEngine> engineSet = new HashSet<>(Arrays.asList(DatabaseEngine.values()));
         for (DatabaseEngine engine : engines) {
             assertTrue("Database engine " + engine + " is not known.", engineSet.contains(engine));
 
@@ -376,7 +376,7 @@ public class StatefulRDBMSTests {
         for (String element: ranges) {
             originalRanges++;
         }
-        List<String> testRanges = new ArrayList<String>();
+        List<String> testRanges = new ArrayList<>();
 
         // First check if we can find any subnets, so we can authorize against their CIDRs
         NetworkServices networkServices = tm.getProvider().getNetworkServices();
@@ -399,6 +399,12 @@ public class StatefulRDBMSTests {
             support.addAccess(testDatabaseId, range);
         }
 
+        // wait for three minutes while the range(s) authorise
+        try {
+            Thread.sleep(180000);
+        }
+        catch( InterruptedException ignore ) { }
+        
         // Check if those ranges have been added
         int count = 0;
         ranges = support.listAccess(testDatabaseId);

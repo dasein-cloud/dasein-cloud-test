@@ -952,6 +952,36 @@ public class NetworkResources {
         return null;
     }
 
+    private @Nullable String findStatelessSubnet(@Nullable String vlanId) {
+        // if vlan is specified let's return its first subnet  
+        if( vlanId != null ) {
+            NetworkServices networkServices = provider.getNetworkServices();
+
+            if( networkServices == null ) {
+                return null;
+            }
+            VLANSupport vlanSupport = networkServices.getVlanSupport();
+            try {
+                if( vlanSupport == null || vlanSupport.getCapabilities().getSubnetSupport().equals(Requirement.NONE)) {
+                    return null;
+                }
+                for( Subnet subnet : vlanSupport.listSubnets(vlanId) ) {
+                    if( subnet.getCurrentState().equals(SubnetState.AVAILABLE) ) {
+                        testSubnets.put(DaseinTestManager.STATELESS, subnet.getProviderSubnetId());
+                        return subnet.getProviderSubnetId();
+                    }
+                }
+                
+            }
+            catch( Throwable ignore ) {
+            }
+            throw new RuntimeException("No subnets found for the requested VLAN ["+vlanId+"], work on the test logic");
+        }
+        else {
+            return findStatelessVLAN();
+        }
+    }
+    
     private @Nullable String findStatelessVLAN() {
         NetworkServices networkServices = provider.getNetworkServices();
 
@@ -969,6 +999,7 @@ public class NetworkResources {
                         if( defaultVlan == null || VLANState.AVAILABLE.equals(vlan.getCurrentState()) ) {
                             Subnet foundSubnet = null;
                             // other tests depend on this being correct
+                            // TODO(stas): I'm not sure this is right
                             if( vlan.getCidr().contains("192.168.1.") ) {
                                 if( !vlanSupport.getCapabilities().getSubnetSupport().equals(Requirement.NONE) ) {
                                     for( Subnet subnet : vlanSupport.listSubnets(vlan.getProviderVlanId()) ) {
@@ -1291,12 +1322,18 @@ public class NetworkResources {
         }
         return null;
     }
-    public @Nullable String getTestSubnetId(@Nonnull String label, boolean provisionIfNull, @Nullable String vlanId, @Nullable String preferredDataCenterId) {
-    	return getTestSubnetId(label, "dsnlb", provisionIfNull, vlanId, preferredDataCenterId);
-    }
     
-    public @Nullable String getTestSubnetId(@Nonnull String label, @Nonnull String lbName, boolean provisionIfNull, @Nullable String vlanId, @Nullable String preferredDataCenterId) {
+    public @Nullable String getTestSubnetId(@Nonnull String label, boolean provisionIfNull, @Nullable String vlanId, @Nullable String preferredDataCenterId) {
+        
         String id;
+        
+        if( vlanId != null ) {
+            id = findStatelessSubnet(vlanId);
+            if( id != null ) {
+                return id;
+            }
+        }
+        
         if( label.equals(DaseinTestManager.STATELESS) ) {
             for( Map.Entry<String, String> entry : testSubnets.entrySet() ) {
                 if( !entry.getKey().startsWith(DaseinTestManager.REMOVED) ) {

@@ -396,7 +396,8 @@ public class StatelessFirewallTests {
             FirewallSupport support = services.getFirewallSupport();
 
             if( support != null ) {
-                boolean inVlan = support.getCapabilities().requiresVLAN().equals(Requirement.REQUIRED);
+                Requirement requiresVlan = support.getCapabilities().requiresVLAN();
+                boolean inVlan = requiresVlan.equals(Requirement.REQUIRED);
                 if( testGeneralFirewallId != null && !inVlan) {
                     Firewall fw = support.getFirewall(testGeneralFirewallId);
 
