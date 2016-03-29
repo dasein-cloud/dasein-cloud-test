@@ -107,7 +107,7 @@ public class StatefulCITests {
                 return;
             }
 
-            if (name.getMethodName().startsWith("deleteCIFromTopology")) {
+            if (name.getMethodName().startsWith("deleteConvergedInfrastructure")) {
                 if( tm.getProvider().getConvergedInfrastructureServices() != null && tm.getProvider().getConvergedInfrastructureServices().getConvergedInfrastructureSupport() != null ) {
                     testCIId = tm.getTestCIId(DaseinTestManager.REMOVED, true);
                 }
@@ -126,7 +126,7 @@ public class StatefulCITests {
      * create new CI and verify it.
      */
     @Test
-    public void createCIFromTopology() throws CloudException, InternalException {
+    public void createConvergedInfrastructure() throws CloudException, InternalException {
         ConvergedInfrastructureServices services = tm.getProvider().getConvergedInfrastructureServices();
         if( services == null ) {
             tm.ok("No converged infrastructure services in this cloud");
@@ -151,7 +151,7 @@ public class StatefulCITests {
      * delete a CI
      */
     @Test
-    public void deleteCIFromTopology() throws CloudException, InternalException {
+    public void deleteConvergedInfrastructure() throws CloudException, InternalException {
         ConvergedInfrastructureServices services = tm.getProvider().getConvergedInfrastructureServices();
         if( services == null ) {
             tm.ok("No converged infrastructure services in this cloud");
