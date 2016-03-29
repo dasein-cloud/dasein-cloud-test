@@ -31,11 +31,8 @@ import org.junit.runners.Suite;
  */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-        StatelessTopologyTests.class,
-        StatefulTopologyTests.class,
         StatefulCITests.class,
-        StatelessHttpLoadBalancerTests.class,
-        StatefulHttpLoadBalancerTests.class
+        StatelessCITests.class
 })
 public class CITestSuite {
     @BeforeClass

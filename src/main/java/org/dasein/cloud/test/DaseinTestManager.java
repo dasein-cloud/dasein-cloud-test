@@ -622,16 +622,8 @@ public class DaseinTestManager {
         return (platformResources == null ? null : platformResources.getTestTopicId(label, provisionIfNull));
     }
 
-    public @Nullable String getTestTopologyId(@Nonnull String label, boolean provisionIfNull) {
-        return (ciResources == null ? null : ciResources.getTestTopologyId(label, provisionIfNull));
-    }
-
     public @Nullable String getTestCIId(@Nonnull String label, boolean provisionIfNull) {
         return (ciResources == null ? null : ciResources.getTestCIId(label, provisionIfNull));
-    }
-
-    public @Nullable String getTestHttpLoadBalancerId(@Nonnull String label, boolean provisionIfNull) {
-        return (ciResources == null ? null : ciResources.getTestConvergedHttpLoadBalancerId(label, provisionIfNull));
     }
 
     public @Nullable String getTestUserId(@Nonnull String label, boolean provisionIfNull, @Nullable String preferredGroupId) {

@@ -21,11 +21,12 @@ package org.dasein.cloud.test.ci;
 
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ResourceStatus;
-import org.dasein.cloud.ci.CIProvisionOptions;
-import org.dasein.cloud.ci.CIServices;
-import org.dasein.cloud.ci.ConvergedInfrastructure;
+import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ci.ConvergedInfrastructureProvisionOptions;
+import org.dasein.cloud.ci.ConvergedInfrastructureServices;
 import org.dasein.cloud.ci.ConvergedInfrastructureSupport;
+import org.dasein.cloud.dc.DataCenterServices;
+import org.dasein.cloud.dc.ResourcePool;
 import org.dasein.cloud.test.DaseinTestManager;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -35,7 +36,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 /**
@@ -43,6 +45,7 @@ import static org.junit.Assume.assumeTrue;
  */
 public class StatefulCITests {
     static private DaseinTestManager tm;
+    private String testResourcePoolId = null;
 
     @BeforeClass
     static public void configure() {
@@ -59,9 +62,8 @@ public class StatefulCITests {
     @Rule
     public final TestName name = new TestName();
 
-    private String testTopologyId;
     private String testCIId;
-    private String testDataCenterId;
+    private ConvergedInfrastructureProvisionOptions options;
 
     public StatefulCITests() { }
 
@@ -69,44 +71,55 @@ public class StatefulCITests {
     public void before() {
         tm.begin(name.getMethodName());
         assumeTrue(!tm.isTestSkipped());
-        testTopologyId = tm.getTestTopologyId(DaseinTestManager.STATELESS, true);
-        testDataCenterId = tm.getTestDataCenterId(true);
 
-        if (name.getMethodName().startsWith("listConvergedInfrastructures") ||
-            name.getMethodName().startsWith("listVLANs") ||
-            name.getMethodName().startsWith("listVirtualMachines") ||
-            name.getMethodName().startsWith("listConvergedInfrastructureStatus") ||
-            name.getMethodName().startsWith("deleteCIFromTopology")) {
-            try {
-                CIProvisionOptions options = CIProvisionOptions.getInstance(name.getMethodName().toLowerCase(), "test-description", testDataCenterId, 1, testTopologyId);
-                if( tm.getProvider().getCIServices() != null && tm.getProvider().getCIServices().getConvergedInfrastructureSupport() != null ) {
-                    ConvergedInfrastructure ci = tm.getProvider().getCIServices().getConvergedInfrastructureSupport().provision(options);
-                    testCIId = ci.getName();
+        try {
+            testResourcePoolId = null;
+            if (tm.getProvider().getDataCenterServices().getCapabilities().supportsResourcePools()) {
+                DataCenterServices dc = tm.getProvider().getDataCenterServices();
+
+                Iterable<ResourcePool> testRPList = dc.listResourcePools(tm.getDefaultDataCenterId(true));
+                if (testRPList != null && testRPList.iterator().hasNext()) {
+                    ResourcePool rp = testRPList.iterator().next();
+                    testResourcePoolId = rp.getProvideResourcePoolId();
                 }
-            } catch ( Exception e ) {
             }
+
+            String testTemplateContent = "", testParametersContent = "";
+            boolean supportsTemplateContent = false;
+            CIResources ciResources = DaseinTestManager.getCiResources();
+            testTemplateContent = ciResources.getTestTemplateContent();
+            testParametersContent = ciResources.getTestParametersContent();
+            ConvergedInfrastructureServices services = tm.getProvider().getConvergedInfrastructureServices();
+            if ( services != null ) {
+                ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
+                if ( support != null ) {
+                    try {
+                        Requirement templateContentLaunchRequirement = support.getCapabilities().identifyTemplateContentLaunchRequirement();
+                        supportsTemplateContent = !templateContentLaunchRequirement.equals(Requirement.NONE);
+                    } catch ( Exception e ) {}
+                }
+            }
+            if ( testTemplateContent != null ) {
+                options = ConvergedInfrastructureProvisionOptions.getInstance("dsn-ci" + System.currentTimeMillis(),
+                        testResourcePoolId, null, testTemplateContent, testParametersContent, supportsTemplateContent);
+            } else {
+                tm.warn("Unable to find converged infrastructure template for testing. Test invalid");
+                return;
+            }
+
+            if (name.getMethodName().startsWith("deleteCIFromTopology")) {
+                if( tm.getProvider().getConvergedInfrastructureServices() != null && tm.getProvider().getConvergedInfrastructureServices().getConvergedInfrastructureSupport() != null ) {
+                    testCIId = tm.getTestCIId(DaseinTestManager.REMOVED, true);
+                }
+
+            }
+        } catch ( Exception e ) {
         }
     }
 
     @After
     public void after() {
         tm.end();
-        try {
-            if (name.getMethodName().startsWith("listConvergedInfrastructures") ||
-                name.getMethodName().startsWith("listVLANs") ||
-                name.getMethodName().startsWith("listConvergedInfrastructureStatus") ||
-                name.getMethodName().startsWith("listVirtualMachines")) {
-                if( tm.getProvider().getCIServices() != null && tm.getProvider().getCIServices().getConvergedInfrastructureSupport() != null ) {
-                    tm.getProvider().getCIServices().getConvergedInfrastructureSupport().terminate(name.getMethodName().toLowerCase(), "test over");
-                }
-            }
-            if (name.getMethodName().startsWith("createCIFromTopology")) {
-                if( tm.getProvider().getCIServices() != null && tm.getProvider().getCIServices().getConvergedInfrastructureSupport() != null ) {
-                    tm.getProvider().getCIServices().getConvergedInfrastructureSupport().terminate(name.getMethodName().toLowerCase(), "test over");
-                }
-            }
-        } catch ( Exception e ) {
-        }
     }
 
     /*
@@ -114,9 +127,9 @@ public class StatefulCITests {
      */
     @Test
     public void createCIFromTopology() throws CloudException, InternalException {
-        CIServices services = tm.getProvider().getCIServices();
+        ConvergedInfrastructureServices services = tm.getProvider().getConvergedInfrastructureServices();
         if( services == null ) {
-            tm.ok("No compute services in this cloud");
+            tm.ok("No converged infrastructure services in this cloud");
             return;
         }
 
@@ -125,10 +138,13 @@ public class StatefulCITests {
             tm.ok("No CI support in this cloud");
             return;
         }
-        String description = "create-test";
-        String zone = testDataCenterId;
-        CIProvisionOptions options = CIProvisionOptions.getInstance(name.getMethodName().toLowerCase(), description , zone , 2, testTopologyId );  // is testTopologyId the url?
-        ConvergedInfrastructure result = support.provision(options);
+        if (support.getCapabilities().identifyResourcePoolLaunchRequirement().equals(Requirement.REQUIRED) ) {
+            if (testResourcePoolId == null) {
+                fail("Unable to find test resource pool id in validateConvergedInfratrcture for cloud which has resource pool requirement");
+            }
+        }
+        String result = DaseinTestManager.getCiResources().provisionConvergedInfrastructure(options, DaseinTestManager.STATEFUL);
+        assertNotNull(result);
     }
 
     /*
@@ -136,9 +152,9 @@ public class StatefulCITests {
      */
     @Test
     public void deleteCIFromTopology() throws CloudException, InternalException {
-        CIServices services = tm.getProvider().getCIServices();
+        ConvergedInfrastructureServices services = tm.getProvider().getConvergedInfrastructureServices();
         if( services == null ) {
-            tm.ok("No compute services in this cloud");
+            tm.ok("No converged infrastructure services in this cloud");
             return;
         }
 
@@ -147,96 +163,8 @@ public class StatefulCITests {
             tm.ok("No CI support in this cloud");
             return;
         }
-
-        support.terminate(testCIId, "die");
-    }
-
-    @Test
-    public void listConvergedInfrastructures() throws CloudException, InternalException {
-        CIServices services = tm.getProvider().getCIServices();
-        if( services == null ) {
-            tm.ok("No Converged Infrastructure services in this cloud");
-            return;
+        if (testCIId != null) {
+            support.terminate(testCIId, "die");
         }
-
-        ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
-        if( support == null ) {
-            tm.ok("No CI support in this cloud");
-        }
-
-        int count = 0;
-        Iterable<ConvergedInfrastructure> convergedInfrastructures = support.listConvergedInfrastructures(null);
-        for (ConvergedInfrastructure ci : convergedInfrastructures) {
-            count++;
-            // testTopologyId
-        }
-        assertTrue("listConvergedInfrastructures must return more than one result.", count > 0);
-    }
-
-    @Test
-    public void listVirtualMachines() throws CloudException, InternalException {
-        CIServices services = tm.getProvider().getCIServices();
-        if (services == null) {
-            tm.ok("No Converged Infrastructure services in this cloud");
-            return;
-        }
-
-        ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
-        if( support == null ) {
-            tm.ok("No CI support in this cloud");
-            return;
-        }
-
-        int count = 0;
-        Iterable<String> virtualMachines = support.listVirtualMachines(testCIId);
-        for (String vm : virtualMachines) {
-            count++;
-        }
-        assertTrue("listVirtualMachines must return more than one result.", count > 0);
-    }
-
-    @Test
-    public void listVLANs() throws CloudException, InternalException {
-        CIServices services = tm.getProvider().getCIServices();
-        if (services == null) {
-            tm.ok("No Converged Infrastructure services in this cloud");
-            return;
-        }
-
-        ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
-        if( support == null ) {
-            tm.ok("No CI support in this cloud");
-            return;
-        }
-
-        int count = 0;
-        Iterable<String> virtualMachines = support.listVLANs(testCIId);
-        for (String vlan : virtualMachines) {
-            count++;
-        }
-        assertTrue("listVLANs must return more than one result.", count > 0);
-    }
-
-    @Test
-    public void listConvergedInfrastructureStatus() throws CloudException, InternalException {
-        CIServices services = tm.getProvider().getCIServices();
-
-        if (services == null) {
-            tm.ok("No Converged Infrastructure services in this cloud");
-            return;
-        }
-        ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
-
-        if( support == null ) {
-            tm.ok("No CI support in this cloud");
-            return;
-        }
-        int count = 0;
-
-        Iterable<ResourceStatus> ciStatus = support.listConvergedInfrastructureStatus();
-        for (ResourceStatus status : ciStatus) {
-            count++;
-        }
-        assertTrue("listConvergedInfrastructureStatus must return more than one result.", count > 0);
     }
 }

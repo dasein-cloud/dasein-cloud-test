@@ -626,7 +626,7 @@ public class PlatformResources {
         } while( id == null );
 
         if( id == null ) {
-            throw new GeneralCloudException("No database was generated", CloudErrorType.GENERAL);
+            throw new GeneralCloudException("No database was generated");
         }
 
         synchronized( testRDBMS ) {
