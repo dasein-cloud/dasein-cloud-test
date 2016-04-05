@@ -63,7 +63,6 @@ public class StatefulCITests {
     public final TestName name = new TestName();
 
     private String testCIId;
-    private ConvergedInfrastructureProvisionOptions options;
 
     public StatefulCITests() { }
 
@@ -82,29 +81,6 @@ public class StatefulCITests {
                     ResourcePool rp = testRPList.iterator().next();
                     testResourcePoolId = rp.getProvideResourcePoolId();
                 }
-            }
-
-            String testTemplateContent = "", testParametersContent = "";
-            boolean supportsTemplateContent = false;
-            CIResources ciResources = DaseinTestManager.getCiResources();
-            testTemplateContent = ciResources.getTestTemplateContent();
-            testParametersContent = ciResources.getTestParametersContent();
-            ConvergedInfrastructureServices services = tm.getProvider().getConvergedInfrastructureServices();
-            if ( services != null ) {
-                ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
-                if ( support != null ) {
-                    try {
-                        Requirement templateContentLaunchRequirement = support.getCapabilities().identifyTemplateContentLaunchRequirement();
-                        supportsTemplateContent = !templateContentLaunchRequirement.equals(Requirement.NONE);
-                    } catch ( Exception e ) {}
-                }
-            }
-            if ( testTemplateContent != null ) {
-                options = ConvergedInfrastructureProvisionOptions.getInstance("dsn-ci" + System.currentTimeMillis(),
-                        testResourcePoolId, null, testTemplateContent, testParametersContent, supportsTemplateContent);
-            } else {
-                tm.warn("Unable to find converged infrastructure template for testing. Test invalid");
-                return;
             }
 
             if (name.getMethodName().startsWith("deleteConvergedInfrastructure")) {
@@ -142,6 +118,25 @@ public class StatefulCITests {
             if (testResourcePoolId == null) {
                 fail("Unable to find test resource pool id in validateConvergedInfratrcture for cloud which has resource pool requirement");
             }
+        }
+
+        String testTemplateContent = "", testParametersContent = "";
+        boolean supportsLiteralContent = false;
+        try {
+            Requirement templateContentLaunchRequirement = support.getCapabilities().identifyTemplateContentLaunchRequirement();
+            supportsLiteralContent = !templateContentLaunchRequirement.equals(Requirement.NONE);
+        } catch ( Exception e ) {}
+        CIResources ciResources = DaseinTestManager.getCiResources();
+        testTemplateContent = ciResources.getTestTemplateContent(supportsLiteralContent);
+        testParametersContent = ciResources.getTestParametersContent(supportsLiteralContent);
+
+        ConvergedInfrastructureProvisionOptions options;
+        if ( testTemplateContent != null ) {
+            options = ConvergedInfrastructureProvisionOptions.getInstance("dsn-ci" + System.currentTimeMillis(),
+                    testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
+        } else {
+            tm.warn("Unable to find converged infrastructure template for testing. Test invalid");
+            return;
         }
         String result = DaseinTestManager.getCiResources().provisionConvergedInfrastructure(options, DaseinTestManager.STATEFUL);
         assertNotNull(result);

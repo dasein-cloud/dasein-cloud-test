@@ -58,21 +58,34 @@ public class CIResources {
 
     private final HashMap<String,String> testInfrastructures = new HashMap<String, String>();
 
-    public String getTestTemplateContent() {
+    public String getTestTemplateContent(boolean supportsLiteralContent) {
         if (testTemplateContent.equals("")) {
-            populateTemplateContent();
+            if (supportsLiteralContent) {
+                populateTemplateContent();
+            }
+            else {
+                //todo get template link/id for clouds that don't support content
+                testTemplateContent = "";
+            }
         }
         return testTemplateContent;
     }
 
-    public String getTestParametersContent() {
+    public String getTestParametersContent(boolean supportsLiteralContent) {
         if (testParametersContent.equals("")) {
-            populateTemplateContent();
+            if (supportsLiteralContent) {
+                populateTemplateContent();
+            }
+            else {
+                //todo get parameter link/id for clouds that don't support content
+                testParametersContent = "";
+            }
         }
         return testParametersContent;
     }
 
     public void populateTemplateContent() {
+        /**************************AZURE RESOURCE MANAGER SPECIFIC***********************/
         try {
             String templateContentFile = "/convergedInfrastructure/templateContent.json";
             String parameterContentFile = "/convergedInfrastructure/parameterContent.json";
@@ -222,19 +235,16 @@ public class CIResources {
                             }
                         }
                     }
-                    boolean supportsTemplateContent = false;
+                    boolean supportsLiteralContent = false;
                     try {
                         Requirement templateContentLaunchRequirement = support.getCapabilities().identifyTemplateContentLaunchRequirement();
-                        supportsTemplateContent = !templateContentLaunchRequirement.equals(Requirement.NONE);
-                        if ( supportsTemplateContent ) {
-                            populateTemplateContent();
-                        } else {
-                            //todo get a test template/parameters id for clouds that don't support content
-                        }
+                        supportsLiteralContent = !templateContentLaunchRequirement.equals(Requirement.NONE);
+                        getTestTemplateContent(supportsLiteralContent);
+                        getTestParametersContent(supportsLiteralContent);
                     } catch ( Exception e ) {
                     }
                     ConvergedInfrastructureProvisionOptions options = ConvergedInfrastructureProvisionOptions.getInstance("dsntest-ci" + label,
-                            testResourcePoolId, null, testTemplateContent, testParametersContent, supportsTemplateContent);
+                            testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
                     String ciId = provisionConvergedInfrastructure(options, label);
                     if ( ciId != null ) {
                         return ciId;

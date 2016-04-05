@@ -97,24 +97,24 @@ public class StatelessCITests {
                 }
 
                 String testTemplateContent = "", testParametersContent = "";
-                boolean supportsTemplateContent = false;
-                CIResources ciResources = DaseinTestManager.getCiResources();
-                testTemplateContent = ciResources.getTestTemplateContent();
-                testParametersContent = ciResources.getTestParametersContent();
+                boolean supportsLiteralContent = false;
                 ConvergedInfrastructureServices services = tm.getProvider().getConvergedInfrastructureServices();
                 if ( services != null ) {
                     ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
                     if ( support != null ) {
                         try {
                             Requirement templateContentLaunchRequirement = support.getCapabilities().identifyTemplateContentLaunchRequirement();
-                            supportsTemplateContent = !templateContentLaunchRequirement.equals(Requirement.NONE);
+                            supportsLiteralContent = !templateContentLaunchRequirement.equals(Requirement.NONE);
                         } catch ( Exception e ) {}
                     }
                 }
+                CIResources ciResources = DaseinTestManager.getCiResources();
+                testTemplateContent = ciResources.getTestTemplateContent(supportsLiteralContent);
+                testParametersContent = ciResources.getTestParametersContent(supportsLiteralContent);
 
                 if ( testTemplateContent != null ) {
                     options = ConvergedInfrastructureProvisionOptions.getInstance("dsn-ci",
-                            testResourcePoolId, null, testTemplateContent, testParametersContent, supportsTemplateContent);
+                            testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
                 } else {
                     tm.warn("Unable to find converged infrastructure template for testing. Test invalid");
                     return;
