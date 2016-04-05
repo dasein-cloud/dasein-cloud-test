@@ -89,6 +89,13 @@ public class StatefulCITests {
                 }
 
             }
+            else if (name.getMethodName().startsWith("cancelConvergedInfrastructure")) {
+
+                if( tm.getProvider().getConvergedInfrastructureServices() != null && tm.getProvider().getConvergedInfrastructureServices().getConvergedInfrastructureSupport() != null ) {
+                    testCIId = tm.getTestCIId(DaseinTestManager.STATEFUL, true);
+                }
+            }
+
         } catch ( Exception e ) {
         }
     }
@@ -160,6 +167,27 @@ public class StatefulCITests {
         }
         if (testCIId != null) {
             support.terminate(testCIId, "die");
+        }
+    }
+
+    /*
+     * cancel a currently running CI deployment
+     */
+    @Test
+    public void cancelConvergedInfrastructure() throws CloudException, InternalException {
+        ConvergedInfrastructureServices services = tm.getProvider().getConvergedInfrastructureServices();
+        if( services == null ) {
+            tm.ok("No converged infrastructure services in this cloud");
+            return;
+        }
+
+        ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
+        if( support == null ) {
+            tm.ok("No CI support in this cloud");
+            return;
+        }
+        if (testCIId != null) {
+            support.cancelDeployment(testCIId, "die");
         }
     }
 }
