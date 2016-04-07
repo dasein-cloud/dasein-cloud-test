@@ -87,7 +87,6 @@ public class StatefulCITests {
                 if( tm.getProvider().getConvergedInfrastructureServices() != null && tm.getProvider().getConvergedInfrastructureServices().getConvergedInfrastructureSupport() != null ) {
                     testCIId = tm.getTestCIId(DaseinTestManager.REMOVED, true);
                 }
-
             }
             else if (name.getMethodName().startsWith("cancelConvergedInfrastructure")) {
 

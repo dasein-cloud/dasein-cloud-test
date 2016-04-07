@@ -56,6 +56,9 @@ public class CIResources {
 
     private CloudProvider   provider;
 
+    private String testTemplateContent = "";
+    private String testParametersContent = "";
+
     private final HashMap<String,String> testInfrastructures = new HashMap<String, String>();
 
     public String getTestTemplateContent(boolean supportsLiteralContent) {
@@ -84,39 +87,39 @@ public class CIResources {
         return testParametersContent;
     }
 
-    public void populateTemplateContent() {
-        /**************************AZURE RESOURCE MANAGER SPECIFIC***********************/
-        try {
-            String templateContentFile = "/convergedInfrastructure/templateContent.json";
-            String parameterContentFile = "/convergedInfrastructure/parameterContent.json";
-            InputStream input = StatelessCITests.class.getResourceAsStream(templateContentFile);
-            BufferedReader templateReader = new BufferedReader(new InputStreamReader(input));
-            StringBuilder templateJson = new StringBuilder();
-            String templateLine;
-            while ((templateLine = templateReader.readLine()) != null) {
-                templateJson.append(templateLine);
-                templateJson.append("\n");
-            }
-            testTemplateContent = templateJson.toString();
-
-            InputStream input2 = StatelessCITests.class.getResourceAsStream(parameterContentFile);
-            BufferedReader parameterReader = new BufferedReader(new InputStreamReader(input2));
-            StringBuilder parameterJson = new StringBuilder();
-            String parameterLine;
-            while ((parameterLine = parameterReader.readLine()) != null) {
-                parameterJson.append(parameterLine);
-                parameterJson.append("\n");
-            }
-            testParametersContent = parameterJson.toString();
+    private void populateTemplateContent() {
+        String templateContentFile = null;
+        String parameterContentFile = null;
+        if ( provider.getCloudName().equals("Azure") ) {
+            /**************************AZURE RESOURCE MANAGER SPECIFIC***********************/
+            templateContentFile = "/convergedInfrastructure/templateContent.json";
+            parameterContentFile = "/convergedInfrastructure/parameterContent.json";
         }
-        catch ( IOException e ) {
-            logger.warn("Unable to read files for template content: "+e.getMessage());
+        if (templateContentFile != null) {
+            testTemplateContent = getFileAsJsonString(templateContentFile);
         }
 
+        if (parameterContentFile != null) {
+            testParametersContent = getFileAsJsonString(parameterContentFile);
+        }
     }
 
-    private String testTemplateContent = "";
-    private String testParametersContent = "";
+    private String getFileAsJsonString(String fileUri) {
+        try {
+            InputStream input = StatelessCITests.class.getResourceAsStream(fileUri);
+            BufferedReader fileReader = new BufferedReader(new InputStreamReader(input));
+            StringBuilder json = new StringBuilder();
+            String templateLine;
+            while ((templateLine = fileReader.readLine()) != null) {
+                json.append(templateLine);
+                json.append("\n");
+            }
+            return json.toString();
+        } catch ( IOException e ) {
+            logger.warn("Unable to read files for template content: " + e.getMessage());
+        }
+        return null;
+    }
 
     public CIResources(@Nonnull CloudProvider provider) {
         this.provider = provider;
@@ -243,11 +246,13 @@ public class CIResources {
                         getTestParametersContent(supportsLiteralContent);
                     } catch ( Exception e ) {
                     }
-                    ConvergedInfrastructureProvisionOptions options = ConvergedInfrastructureProvisionOptions.getInstance("dsntest-ci" + label,
-                            testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
-                    String ciId = provisionConvergedInfrastructure(options, label);
-                    if ( ciId != null ) {
-                        return ciId;
+                    if (testTemplateContent != null) {
+                        ConvergedInfrastructureProvisionOptions options = ConvergedInfrastructureProvisionOptions.getInstance("dsntest-ci" + label,
+                                testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
+                        String ciId = provisionConvergedInfrastructure(options, label);
+                        if ( ciId != null ) {
+                            return ciId;
+                        }
                     }
                 } catch ( Throwable ignore ) {
                     return null;
