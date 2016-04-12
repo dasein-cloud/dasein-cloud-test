@@ -166,8 +166,8 @@ public class StatefulVpnTests {
 
     @Test
     public void createInternalVpn() throws CloudException, InternalException {
-        CloudProvider provider = tm.getProvider();
-        VpnSupport vpnSupport = provider.getNetworkServices().getVpnSupport();
+        assumeNotNull(networkServices);
+        assumeNotNull(vpnSupport);
         VpnCapabilities vpnCapabilities = vpnSupport.getCapabilities();
 
         if (null != vpnCapabilities) {
