@@ -248,7 +248,7 @@ public class CIResources {
                     }
                     if (testTemplateContent != null) {
                         ConvergedInfrastructureProvisionOptions options = ConvergedInfrastructureProvisionOptions.getInstance("dsntest-ci" + label,
-                                testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
+                                "dsntest-ci description", testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
                         String ciId = provisionConvergedInfrastructure(options, label);
                         if ( ciId != null ) {
                             return ciId;

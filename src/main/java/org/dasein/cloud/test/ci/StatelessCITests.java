@@ -114,7 +114,7 @@ public class StatelessCITests {
 
                 if ( testTemplateContent != null ) {
                     options = ConvergedInfrastructureProvisionOptions.getInstance("dsn-ci",
-                            testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
+                            "dsnci-description", testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
                 } else {
                     tm.warn("Unable to find converged infrastructure template for testing. Test invalid");
                     return;
