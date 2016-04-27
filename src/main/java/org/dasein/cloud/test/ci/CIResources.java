@@ -20,27 +20,29 @@
 package org.dasein.cloud.test.ci;
 
 import org.apache.log4j.Logger;
+import org.dasein.cloud.CloudException;
 import org.dasein.cloud.CloudProvider;
-import org.dasein.cloud.ci.CIProvisionOptions;
-import org.dasein.cloud.ci.CIServices;
-import org.dasein.cloud.ci.ConvergedHttpLoadBalancer;
-import org.dasein.cloud.ci.ConvergedHttpLoadBalancerSupport;
+import org.dasein.cloud.InternalException;
+import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ci.ConvergedInfrastructure;
+import org.dasein.cloud.ci.ConvergedInfrastructureProvisionOptions;
+import org.dasein.cloud.ci.ConvergedInfrastructureServices;
 import org.dasein.cloud.ci.ConvergedInfrastructureState;
 import org.dasein.cloud.ci.ConvergedInfrastructureSupport;
 import org.dasein.cloud.ci.Topology;
-import org.dasein.cloud.ci.TopologyProvisionOptions;
-import org.dasein.cloud.ci.TopologyState;
 import org.dasein.cloud.ci.TopologySupport;
+import org.dasein.cloud.dc.DataCenterServices;
+import org.dasein.cloud.dc.ResourcePool;
 import org.dasein.cloud.test.DaseinTestManager;
 import org.dasein.cloud.test.compute.ComputeResources;
-import org.dasein.cloud.test.network.NetworkResources;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -56,43 +58,80 @@ public class CIResources {
 
     private CloudProvider   provider;
 
+    private String testTemplateContent = "";
+    private String testParametersContent = "";
+
     private final HashMap<String,String> testInfrastructures = new HashMap<String, String>();
     private final HashMap<String,String> testTopologies      = new HashMap<String, String>();
-    private final HashMap<String,String> testHttpLoadBalancers      = new HashMap<String, String>();
+
+    public String getTestTemplateContent(boolean supportsLiteralContent) {
+        if (testTemplateContent.equals("")) {
+            if (supportsLiteralContent) {
+                populateTemplateContent();
+            }
+            else {
+                testTemplateContent = getTestTopologyId(DaseinTestManager.STATELESS, true);
+            }
+        }
+        return testTemplateContent;
+    }
+
+    public String getTestParametersContent(boolean supportsLiteralContent) {
+        if (testParametersContent.equals("")) {
+            if (supportsLiteralContent) {
+                populateTemplateContent();
+            }
+            else {
+                //todo get parameter link/id for clouds that don't support content
+                testParametersContent = "";
+            }
+        }
+        return testParametersContent;
+    }
+
+    private void populateTemplateContent() {
+        String templateContentFile = null;
+        String parameterContentFile = null;
+        if ( provider.getCloudName().equals("Azure") ) {
+            /**************************AZURE RESOURCE MANAGER SPECIFIC***********************/
+            templateContentFile = "/convergedInfrastructure/templateContent.json";
+            parameterContentFile = "/convergedInfrastructure/parameterContent.json";
+        }
+        if (templateContentFile != null) {
+            testTemplateContent = getFileAsJsonString(templateContentFile);
+        }
+
+        if (parameterContentFile != null) {
+            testParametersContent = getFileAsJsonString(parameterContentFile);
+        }
+    }
+
+    private String getFileAsJsonString(String fileUri) {
+        try {
+            InputStream input = StatelessCITests.class.getResourceAsStream(fileUri);
+            BufferedReader fileReader = new BufferedReader(new InputStreamReader(input));
+            StringBuilder json = new StringBuilder();
+            String templateLine;
+            while ((templateLine = fileReader.readLine()) != null) {
+                json.append(templateLine);
+                json.append("\n");
+            }
+            return json.toString();
+        } catch ( IOException e ) {
+            logger.warn("Unable to read files for template content: " + e.getMessage());
+        }
+        return null;
+    }
 
     public CIResources(@Nonnull CloudProvider provider) {
         this.provider = provider;
     }
 
     public int close() {
-        CIServices ciServices = provider.getCIServices();
+        ConvergedInfrastructureServices ciServices = provider.getConvergedInfrastructureServices();
         int count = 0;
 
         if( ciServices != null ) {
-            ConvergedHttpLoadBalancerSupport hlbSupport = ciServices.getConvergedHttpLoadBalancerSupport();
-
-            if( hlbSupport != null ) {
-                List<String> hlbIds = new ArrayList<String>();
-                for( Map.Entry<String,String> entry : testHttpLoadBalancers.entrySet() ) {
-                    if ( !entry.getKey().equals(DaseinTestManager.STATELESS) ) {
-                        try {
-                            ConvergedHttpLoadBalancer hlb = hlbSupport.getConvergedHttpLoadBalancer(entry.getValue());
-
-                            if( hlb != null ) {
-                                hlbSupport.removeConvergedHttpLoadBalancers(entry.getValue());
-                                count++;
-                            }
-                            else {
-                                count++;
-                            }
-                        }
-                        catch( Throwable t ) {
-                            logger.warn("Failed to de-provision test ConvergedHttpLoadBlancer " + entry.getValue() + ": " + t.getMessage());
-                        }
-                    }
-                }
-            }
-
             ConvergedInfrastructureSupport ciSupport = ciServices.getConvergedInfrastructureSupport();
 
             if( ciSupport != null ) {
@@ -115,26 +154,114 @@ public class CIResources {
                     }
                 }
             }
+        }
+        return count;
+    }
 
-            TopologySupport tSupport = ciServices.getTopologySupport();
+    private @Nullable String findStatelessCI() {
+        ConvergedInfrastructureServices services = provider.getConvergedInfrastructureServices();
 
-            if( tSupport != null ) {
-                List<String> topologyIds = new ArrayList<String>();
-                for( Map.Entry<String,String> entry : testTopologies.entrySet() ) {
-                    if ( !entry.getKey().equals(DaseinTestManager.STATELESS) ) {
-                        topologyIds.add(entry.getValue());
-                        count++;
+        if( services != null ) {
+            ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
+
+            try {
+                if( support != null && support.isSubscribed() ) {
+                    ConvergedInfrastructure defaultCI = null;
+
+                    for( ConvergedInfrastructure ci : support.listConvergedInfrastructures(null) ) {
+                        if( ci.getCiState().equals(ConvergedInfrastructureState.READY) ) {
+                            defaultCI = ci;
+                            break;
+                        }
+                        if( defaultCI == null ) {
+                            defaultCI = ci;
+                        }
+                    }
+                    if( defaultCI != null ) {
+                        String id = defaultCI.getProviderCIId();
+
+                        testInfrastructures.put(DaseinTestManager.STATELESS, id);
+                        return id;
                     }
                 }
-                try {
-                    tSupport.removeTopologies(topologyIds.toArray(new String[topologyIds.size()]));
+            }
+            catch( Throwable ignore ) {
+                // ignore
+            }
+        }
+        return null;
+    }
+
+    public
+    @Nullable
+    String getTestCIId(@Nonnull String label, boolean provisionIfNull) {
+        String id = testInfrastructures.get(label);
+        if ( id == null ) {
+            if ( label.equals(DaseinTestManager.STATELESS) ) {
+                for (Map.Entry<String, String> entry : testInfrastructures.entrySet()) {
+                    if ( !entry.getKey().startsWith(DaseinTestManager.REMOVED) ) {
+                        id = entry.getValue();
+
+                        if ( id != null ) {
+                            return id;
+                        }
+                    }
                 }
-                catch( Throwable e ) {
-                    logger.warn("Failed to de-provision test topology " + e.getMessage());
+                id = findStatelessCI();
+            }
+        }
+
+
+        if ( id != null ) {
+            return id;
+        }
+        if ( !provisionIfNull ) {
+            return null;
+        }
+        ConvergedInfrastructureServices services = provider.getConvergedInfrastructureServices();
+
+        if ( services != null ) {
+            ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
+
+            if ( support != null ) {
+                try {
+                    String testResourcePoolId = null;
+                    DataCenterServices dc = provider.getDataCenterServices();
+                    if ( dc.getCapabilities().supportsResourcePools() ) {
+                        if ( support.getCapabilities().identifyResourcePoolLaunchRequirement().equals(Requirement.REQUIRED) ) {
+                            ComputeResources computeResources = DaseinTestManager.getComputeResources();
+                            Iterable<ResourcePool> testRPList = dc.listResourcePools(computeResources.getTestDataCenterId(true));
+                            if ( testRPList != null && testRPList.iterator().hasNext() ) {
+                                ResourcePool rp = testRPList.iterator().next();
+                                testResourcePoolId = rp.getProvideResourcePoolId();
+                            }
+                            if ( testResourcePoolId == null ) {
+                                return null;
+                            }
+                        }
+                    }
+                    boolean supportsLiteralContent = false;
+                    try {
+                        Requirement templateContentLaunchRequirement = support.getCapabilities().identifyTemplateContentLaunchRequirement();
+                        supportsLiteralContent = !templateContentLaunchRequirement.equals(Requirement.NONE);
+                        getTestTemplateContent(supportsLiteralContent);
+                        getTestParametersContent(supportsLiteralContent);
+                    } catch ( Exception e ) {
+                    }
+                    if (testTemplateContent != null) {
+                        ConvergedInfrastructureProvisionOptions options = ConvergedInfrastructureProvisionOptions.getInstance("dsntest-ci" + label,
+                                "dsntest-ci description", testResourcePoolId, null, testTemplateContent, testParametersContent, supportsLiteralContent);
+                        String ciId = provisionConvergedInfrastructure(options, label);
+                        if ( ciId != null ) {
+                            return ciId;
+                        }
+                    }
+                } catch ( Throwable ignore ) {
+                    return null;
                 }
             }
         }
-        return count;
+        return null;
     }
 
     public @Nullable String getTestTopologyId(@Nonnull String label, boolean provisionIfNull) {
@@ -158,114 +285,11 @@ public class CIResources {
         if( id != null ) {
             return id;
         }
-        if( !provisionIfNull ) {
-            return null;
-        }
-        CIServices services = provider.getCIServices();
-
-        if( services != null ) {
-            TopologySupport support = services.getTopologySupport();
-
-            if( support != null ) {
-                try {
-                    NetworkResources networkResources = DaseinTestManager.getNetworkResources();
-                    String testNetworkId = networkResources.getTestVLANId(DaseinTestManager.STATELESS, false, null);
-                    ComputeResources computeResources = DaseinTestManager.getComputeResources();
-                    String testImageId = computeResources.getTestImageId(DaseinTestManager.STATELESS, false);
-                    String testProductId = computeResources.getTestVMProductId();
-
-                    TopologyProvisionOptions withTopologyOptions = TopologyProvisionOptions.getInstance("dsn-topology"+String.valueOf(random.nextInt(10000)), "description", testProductId, true);
-
-                    withTopologyOptions = withTopologyOptions.withAutomaticRestart(false);
-                    withTopologyOptions = withTopologyOptions.withMaintenanceOption(TopologyProvisionOptions.MaintenanceOption.TERMINATE_VM_INSTANCE);
-
-                    withTopologyOptions = withTopologyOptions.withNetworkInterface(testNetworkId, null, true); // ,accessConfigs);
-                    withTopologyOptions = withTopologyOptions.withAttachedDisk("dsn-topology-disk"+String.valueOf(random.nextInt(1000)), TopologyProvisionOptions.DiskType.STANDARD_PERSISTENT_DISK, testImageId, true, true);
-                    boolean result = support.createTopology(withTopologyOptions);
-                    if (result) {
-                        id = withTopologyOptions.getProductName();
-                        testTopologies.put(DaseinTestManager.STATEFUL, id);
-                        return id;
-                    }
-                }
-                catch( Throwable ignore ) {
-                    return null;
-                }
-            }
-        }
-        return null;
-    }
-
-    public @Nullable String getTestConvergedHttpLoadBalancerId(@Nonnull String label, boolean provisionIfNull) {
-        String id = testHttpLoadBalancers.get(label);
-        if (id == null) {
-            if ( label.equals(DaseinTestManager.STATELESS) ) {
-                for (Map.Entry<String, String> entry : testHttpLoadBalancers.entrySet()) {
-                    if ( !entry.getKey().startsWith(DaseinTestManager.REMOVED) ) {
-                        id = entry.getValue();
-
-                        if ( id != null ) {
-                            return id;
-                        }
-                    }
-                }
-                id = findStatelessConvergedHttpLoadBalancer();
-            }
-        }
-
-
-        if( id != null ) {
-            return id;
-        }
-        if( !provisionIfNull ) {
-            return null;
-        }
-        CIServices services = provider.getCIServices();
-
-        if( services != null ) {
-            ConvergedHttpLoadBalancerSupport support = services.getConvergedHttpLoadBalancerSupport();
-            ConvergedInfrastructureSupport ciSupport = services.getConvergedInfrastructureSupport();
-
-            if( support != null ) {
-                try {
-                    String ciId = getTestCIId(DaseinTestManager.STATELESS, true);
-                    ConvergedInfrastructure ci = ciSupport.getConvergedInfrastructure(ciId);
-                    String ciSource = ci.getProviderConvergedInfrastructureId();
-                    //horrible hack to try keep tests generic but work for google
-                    if (provider.getCloudName().equals("GCE")) {
-                        ciSource = ci.getTag("instanceGroupLink").toString();
-                    }
-                    Map<String, String> pathMap = new HashMap<String, String>();
-                    String defaultBackend = "test-backend-1"+random.nextInt(1000);
-                    pathMap.put("/*", defaultBackend);
-                    String healthCheck1 = "test-health-check"+random.nextInt(1000);
-                    String targetProxy1 = "target-proxy-"+random.nextInt(1000);
-                    ConvergedHttpLoadBalancer withExperimentalConvergedHttpLoadbalancerOptions = ConvergedHttpLoadBalancer
-                            .getInstance("test-http-load-balancer" + random.nextInt(1000), "test-http-load-balancer-description", defaultBackend)
-                            .withHealthCheck(healthCheck1, healthCheck1 + "-description", null, 80, "/", 5, 5, 2, 2) //ONLY ONE ALLOWED
-                            .withBackendService(defaultBackend, defaultBackend + "-description", 80, "http", "HTTP", new String[]{healthCheck1}, new String[]{ciSource}, 30)
-                            .withUrlSet("url-map-1", "url-map-description", "*", pathMap)
-                            .withTargetHttpProxy(targetProxy1, targetProxy1 + "-description")
-                            .withForwardingRule(targetProxy1 + "-fr", targetProxy1 + "-fr-description", null, "TCP", "80", targetProxy1);
-
-                    id = support.createConvergedHttpLoadBalancer(withExperimentalConvergedHttpLoadbalancerOptions);
-                    if (id != null) {
-                        if (!label.equals(DaseinTestManager.REMOVED)) {
-                            testHttpLoadBalancers.put(DaseinTestManager.STATEFUL, id);
-                        }
-                        return id;
-                    }
-                }
-                catch( Throwable ignore ) {
-                    return null;
-                }
-            }
-        }
         return null;
     }
 
     private @Nullable String findStatelessTopology() {
-        CIServices services = provider.getCIServices();
+        ConvergedInfrastructureServices services = provider.getConvergedInfrastructureServices();
 
         if( services != null ) {
             TopologySupport support = services.getTopologySupport();
@@ -275,13 +299,8 @@ public class CIResources {
                     Topology defaultTopology = null;
 
                     for( Topology t : support.listTopologies(null) ) {
-                        if( t.getCurrentState().equals(TopologyState.ACTIVE) ) {
-                            defaultTopology = t;
-                            break;
-                        }
-                        if( defaultTopology == null ) {
-                            defaultTopology = t;
-                        }
+                        defaultTopology = t;
+                        break;
                     }
                     if( defaultTopology != null ) {
                         String id = defaultTopology.getProviderTopologyId();
@@ -298,117 +317,6 @@ public class CIResources {
         return null;
     }
 
-    private @Nullable String findStatelessCI() {
-        CIServices services = provider.getCIServices();
-
-        if( services != null ) {
-            ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
-
-            try {
-                if( support != null && support.isSubscribed() ) {
-                    ConvergedInfrastructure defaultCI = null;
-
-                    for( ConvergedInfrastructure ci : support.listConvergedInfrastructures(null) ) {
-                        if( ci.getCurrentState().equals(ConvergedInfrastructureState.RUNNING) ) {
-                            defaultCI = ci;
-                            break;
-                        }
-                        if( defaultCI == null ) {
-                            defaultCI = ci;
-                        }
-                    }
-                    if( defaultCI != null ) {
-                        String id = defaultCI.getProviderConvergedInfrastructureId();
-
-                        testInfrastructures.put(DaseinTestManager.STATELESS, id);
-                        return id;
-                    }
-                }
-            }
-            catch( Throwable ignore ) {
-                // ignore
-            }
-        }
-        return null;
-    }
-
-    private @Nullable String findStatelessConvergedHttpLoadBalancer() {
-        CIServices services = provider.getCIServices();
-
-        if( services != null ) {
-            ConvergedHttpLoadBalancerSupport support = services.getConvergedHttpLoadBalancerSupport();
-
-            try {
-                if( support != null && support.isSubscribed() ) {
-                    String defaultHLB = null;
-
-                    for( String hlb : support.listConvergedHttpLoadBalancers() ) {
-                        if( defaultHLB == null ) {
-                            defaultHLB = hlb;
-                        }
-                    }
-                    if( defaultHLB != null ) {
-                        testHttpLoadBalancers.put(DaseinTestManager.STATELESS, defaultHLB);
-                        return defaultHLB;
-                    }
-                }
-            }
-            catch( Throwable ignore ) {
-                // ignore
-            }
-        }
-        return null;
-    }
-
-    public @Nullable String getTestCIId(@Nonnull String label, boolean provisionIfNull) {
-        String id = testInfrastructures.get(label);
-        if (id == null) {
-            if ( label.equals(DaseinTestManager.STATELESS) ) {
-                for (Map.Entry<String, String> entry : testInfrastructures.entrySet()) {
-                    if ( !entry.getKey().startsWith(DaseinTestManager.REMOVED) ) {
-                        id = entry.getValue();
-
-                        if ( id != null ) {
-                            return id;
-                        }
-                    }
-                }
-                id = findStatelessCI();
-            }
-        }
-
-
-        if( id != null ) {
-            return id;
-        }
-        if( !provisionIfNull ) {
-            return null;
-        }
-        CIServices services = provider.getCIServices();
-
-        if( services != null ) {
-            ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
-
-            if( support != null ) {
-                try {
-                    String testTopologyId = getTestTopologyId(DaseinTestManager.STATELESS, true);
-                    String testDataCenterId = DaseinTestManager.getDefaultDataCenterId(true);
-                    CIProvisionOptions options = CIProvisionOptions.getInstance("dsn-ci", "test-description", testDataCenterId, 1, testTopologyId);
-                    ConvergedInfrastructure ci = support.provision(options);
-                    if (ci != null) {
-                        id = ci.getName();
-                        testInfrastructures.put(DaseinTestManager.STATEFUL, id);
-                        return id;
-                    }
-                }
-                catch( Throwable ignore ) {
-                    return null;
-                }
-            }
-        }
-        return null;
-    }
-
     public int report() {
         boolean header = false;
         int count = 0;
@@ -420,23 +328,29 @@ public class CIResources {
             count += testInfrastructures.size();
             DaseinTestManager.out(logger, null, "---> Infrastructures", testInfrastructures.size() + " " + testInfrastructures);
         }
-        testTopologies.remove(DaseinTestManager.STATELESS);
-        if( !testTopologies.isEmpty() ) {
-            if( !header ) {
-                logger.info("Provisioned CI Resources:");
-                header = true;
-            }
-            count += testTopologies.size();
-            DaseinTestManager.out(logger, null, "---> Topologies", testTopologies.size() + " " + testTopologies);
-        }
-        testHttpLoadBalancers.remove(DaseinTestManager.STATELESS);
-        if( !testHttpLoadBalancers.isEmpty() ) {
-            if( !header ) {
-                logger.info("Provisioned CI Resources:");
-            }
-            count += testHttpLoadBalancers.size();
-            DaseinTestManager.out(logger, null, "---> ConvergedHttpLoadBalancers", testHttpLoadBalancers.size() + " " + testHttpLoadBalancers);
-        }
         return count;
+    }
+
+    public String provisionConvergedInfrastructure(ConvergedInfrastructureProvisionOptions options, String label) throws CloudException, InternalException {
+        String id = null;
+        ConvergedInfrastructureServices services = provider.getConvergedInfrastructureServices();
+
+        if( services != null ) {
+            ConvergedInfrastructureSupport support = services.getConvergedInfrastructureSupport();
+
+            if ( support != null ) {
+                ConvergedInfrastructure ci = support.provision(options);
+                if ( ci != null ) {
+                    id = ci.getProviderCIId();
+                    synchronized (testInfrastructures) {
+                        while (testInfrastructures.containsKey(label)) {
+                            label = label + random.nextInt(9);
+                        }
+                        testInfrastructures.put(label, id);
+                    }
+                }
+            }
+        }
+        return id;
     }
 }

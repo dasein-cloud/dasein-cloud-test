@@ -2169,7 +2169,7 @@ public class NetworkResources {
         //}
         id = support.createVlan("192.168.1.0/24", namePrefix + ( System.currentTimeMillis() % 10000 ), "Test VLAN for the Dasein Cloud Integration tests", "example.com", new String[]{"192.168.1.1"}, new String[]{"192.168.1.1"}).getProviderVlanId();
         if( id == null ) {
-            throw new GeneralCloudException("No VLAN was created", CloudErrorType.GENERAL);
+            throw new GeneralCloudException("No VLAN was created");
         }
         synchronized ( testVLANs ) {
             while( testVLANs.containsKey(label) ) {
@@ -2183,7 +2183,7 @@ public class NetworkResources {
     public @Nonnull String provisionRoutingTable(@Nonnull VLANSupport support, @Nonnull String vlanId, @Nonnull String label, @Nonnull String namePrefix) throws CloudException, InternalException {
         String id = support.createRoutingTable(vlanId, namePrefix + ( System.currentTimeMillis() % 10000 ), "Test Routing Table for the Dasein Cloud Integration tests");
         if( id == null ) {
-            throw new GeneralCloudException("No Routing Table was created", CloudErrorType.GENERAL);
+            throw new GeneralCloudException("No Routing Table was created");
         }
         synchronized ( testRouteTables ) {
             while( testRouteTables.containsKey(label) ) {

@@ -20,7 +20,6 @@
 package org.dasein.cloud.test.compute;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.CloudProvider;
 import org.dasein.cloud.GeneralCloudException;
@@ -69,7 +68,11 @@ import org.dasein.util.uom.storage.Storage;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Random;
 
 import static org.junit.Assert.fail;
 
@@ -1015,7 +1018,7 @@ public class ComputeResources {
         String id = options.build(provider);
 
         if( id == null ) {
-            throw new GeneralCloudException("Unable to create a snapshot", CloudErrorType.GENERAL);
+            throw new GeneralCloudException("Unable to create a snapshot");
         }
         synchronized ( testSnapshots ) {
             while( testSnapshots.containsKey(label) ) {

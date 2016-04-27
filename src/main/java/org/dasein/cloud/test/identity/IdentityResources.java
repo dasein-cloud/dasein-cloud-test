@@ -21,7 +21,11 @@ package org.dasein.cloud.test.identity;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.*;
+import org.dasein.cloud.CloudException;
+import org.dasein.cloud.CloudProvider;
+import org.dasein.cloud.GeneralCloudException;
+import org.dasein.cloud.InternalException;
+import org.dasein.cloud.Requirement;
 import org.dasein.cloud.identity.CloudGroup;
 import org.dasein.cloud.identity.CloudUser;
 import org.dasein.cloud.identity.IdentityAndAccessSupport;
@@ -36,10 +40,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -401,7 +403,7 @@ public class IdentityResources {
         String id = support.createGroup(namePrefix + " " + System.currentTimeMillis(), "/dsntest", false).getProviderGroupId();
 
         if( id == null ) {
-            throw new GeneralCloudException("No group was created", CloudErrorType.GENERAL);
+            throw new GeneralCloudException("No group was created");
         }
         synchronized( testGroups ) {
             while( testGroups.containsKey(label) ) {
@@ -425,7 +427,7 @@ public class IdentityResources {
             id = support.createKeypair(namePrefix + (System.currentTimeMillis()%10000)).getProviderKeypairId();
         }
         if( id == null ) {
-            throw new GeneralCloudException("No keypair was generated", CloudErrorType.GENERAL);
+            throw new GeneralCloudException("No keypair was generated");
         }
         synchronized( testKeys ) {
             while( testKeys.containsKey(label) ) {
@@ -440,7 +442,7 @@ public class IdentityResources {
         String id = support.createUser(namePrefix + (System.currentTimeMillis()%10000), "/dsntest", preferredGroups == null ? new String[0] : preferredGroups).getProviderUserId();
 
         if( id == null ) {
-            throw new GeneralCloudException("No user was created", CloudErrorType.GENERAL);
+            throw new GeneralCloudException("No user was created");
         }
         synchronized( testUsers ) {
             while( testUsers.containsKey(label) ) {

@@ -480,7 +480,7 @@ public class StatefulObjectStoreTests {
                 }
                 //noinspection ThrowableResultOfMethodCallIgnored
                 if( task.getTransferError() != null ) {
-                    throw new GeneralCloudException("Download of "+targetFile+" had an error.", task.getTransferError(), CloudErrorType.GENERAL);
+                    throw new GeneralCloudException("Download of "+targetFile+" had an error.", task.getTransferError());
                 }
                 tm.out("Downloaded", targetFile.length() + " bytes");
                 assertFile(targetFile);
@@ -534,7 +534,7 @@ public class StatefulObjectStoreTests {
                 }
                 //noinspection ThrowableResultOfMethodCallIgnored
                 if( task.getTransferError() != null ) {
-                    throw new GeneralCloudException("Download of "+targetFile+" had an error.", task.getTransferError(), CloudErrorType.GENERAL);
+                    throw new GeneralCloudException("Download of "+targetFile+" had an error.", task.getTransferError());
                 }
                 tm.out("Downloaded", targetFile.length() + " bytes");
                 assertFile(targetFile);

@@ -630,10 +630,6 @@ public class DaseinTestManager {
         return (ciResources == null ? null : ciResources.getTestCIId(label, provisionIfNull));
     }
 
-    public @Nullable String getTestHttpLoadBalancerId(@Nonnull String label, boolean provisionIfNull) {
-        return (ciResources == null ? null : ciResources.getTestConvergedHttpLoadBalancerId(label, provisionIfNull));
-    }
-
     public @Nullable String getTestUserId(@Nonnull String label, boolean provisionIfNull, @Nullable String preferredGroupId) {
         return (identityResources == null ? null : identityResources.getTestUserId(label, provisionIfNull, preferredGroupId));
     }

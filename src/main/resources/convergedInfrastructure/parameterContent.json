@@ -1,0 +1,17 @@
+{
+  "dnsLabelPrefix": {
+    "value": "test-dns"
+  },
+  "vmName": {
+    "value": "rdpVM"
+  },
+  "adminUsername": {
+    "value": "azureUser"
+  },
+  "adminPassword": {
+    "value": "p@ssw0rd!"
+  },
+  "rdpPort": {
+    "value": 50001
+  }
+}

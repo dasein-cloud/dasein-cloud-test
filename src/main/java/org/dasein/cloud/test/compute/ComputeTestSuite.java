@@ -20,7 +20,6 @@
 package org.dasein.cloud.test.compute;
 
 import org.dasein.cloud.test.DaseinTestManager;
-import org.dasein.cloud.test.ci.StatelessTopologyTests;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
