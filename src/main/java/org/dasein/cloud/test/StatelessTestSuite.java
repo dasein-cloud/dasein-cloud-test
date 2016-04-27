@@ -20,6 +20,7 @@
 package org.dasein.cloud.test;
 
 import org.dasein.cloud.test.ci.StatelessCITests;
+import org.dasein.cloud.test.ci.StatelessTopologyTests;
 import org.dasein.cloud.test.cloud.StatelessAuthenticationTests;
 import org.dasein.cloud.test.cloud.StatelessDCTests;
 import org.dasein.cloud.test.compute.StatelessAffinityGroupTests;
@@ -78,7 +79,8 @@ import org.junit.runners.Suite;
         StatelessMonitoringTests.class,
         StatelessNotificationsTests.class,
         StatelessVMMonitoringTests.class,
-        StatelessCITests.class
+        StatelessCITests.class,
+        StatelessTopologyTests.class
 })
 public class StatelessTestSuite {
 }

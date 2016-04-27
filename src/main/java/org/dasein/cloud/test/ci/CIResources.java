@@ -29,6 +29,8 @@ import org.dasein.cloud.ci.ConvergedInfrastructureProvisionOptions;
 import org.dasein.cloud.ci.ConvergedInfrastructureServices;
 import org.dasein.cloud.ci.ConvergedInfrastructureState;
 import org.dasein.cloud.ci.ConvergedInfrastructureSupport;
+import org.dasein.cloud.ci.Topology;
+import org.dasein.cloud.ci.TopologySupport;
 import org.dasein.cloud.dc.DataCenterServices;
 import org.dasein.cloud.dc.ResourcePool;
 import org.dasein.cloud.test.DaseinTestManager;
@@ -60,6 +62,7 @@ public class CIResources {
     private String testParametersContent = "";
 
     private final HashMap<String,String> testInfrastructures = new HashMap<String, String>();
+    private final HashMap<String,String> testTopologies      = new HashMap<String, String>();
 
     public String getTestTemplateContent(boolean supportsLiteralContent) {
         if (testTemplateContent.equals("")) {
@@ -67,8 +70,7 @@ public class CIResources {
                 populateTemplateContent();
             }
             else {
-                //todo get template link/id for clouds that don't support content
-                testTemplateContent = "";
+                testTemplateContent = getTestTopologyId(DaseinTestManager.STATELESS, true);
             }
         }
         return testTemplateContent;
@@ -257,6 +259,59 @@ public class CIResources {
                 } catch ( Throwable ignore ) {
                     return null;
                 }
+            }
+        }
+        return null;
+    }
+
+    public @Nullable String getTestTopologyId(@Nonnull String label, boolean provisionIfNull) {
+        String id = testTopologies.get(label);
+        if (id == null) {
+            if ( label.equals(DaseinTestManager.STATELESS) ) {
+                for (Map.Entry<String, String> entry : testTopologies.entrySet()) {
+                    if ( !entry.getKey().startsWith(DaseinTestManager.REMOVED) ) {
+                        id = entry.getValue();
+
+                        if ( id != null ) {
+                            return id;
+                        }
+                    }
+                }
+                id = findStatelessTopology();
+            }
+        }
+
+
+        if( id != null ) {
+            return id;
+        }
+        return null;
+    }
+
+    private @Nullable String findStatelessTopology() {
+        ConvergedInfrastructureServices services = provider.getConvergedInfrastructureServices();
+
+        if( services != null ) {
+            TopologySupport support = services.getTopologySupport();
+
+            try {
+                if( support != null && support.isSubscribed() ) {
+                    Topology defaultTopology = null;
+
+                    for( Topology t : support.listTopologies(null) ) {
+                        defaultTopology = t;
+                        break;
+                    }
+                    if( defaultTopology != null ) {
+                        String id = defaultTopology.getProviderTopologyId();
+
+                        testTopologies.put(DaseinTestManager.STATELESS, id);
+                        return id;
+                    }
+                }
+            }
+            catch( Throwable ignore ) {
+                // ignore
             }
         }
         return null;
